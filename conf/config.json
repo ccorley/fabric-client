@@ -1,0 +1,8 @@
+{
+    "user": "appUser",
+    "channel": "channel1",
+    "contract": "fhir-data",
+    "port": 9043,
+    "connectionProfile": "conf/connection-org1.json",
+    "walletLocation": "wallet"
+}

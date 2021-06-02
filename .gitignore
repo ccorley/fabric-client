@@ -1,0 +1,4 @@
+.idea
+node_modules
+wallet
+conf/connection-org1.json

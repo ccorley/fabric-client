@@ -1,0 +1,21 @@
+{
+    "name": "fabric-client",
+    "version": "0.0.1",
+    "description": "sends a transaction to a blockchain",
+    "main": "server.js",
+    "engines": {
+        "node": ">=12",
+        "npm": ">=5"
+    },
+    "scripts": {},
+    "engineStrict": true,
+    "author": "Carole Corley",
+    "license": "Apache-2.0",
+    "dependencies": {
+        "express": "^4.17.1",
+        "fabric-ca-client": "^2.2.6",
+        "fabric-network": "^2.1.0",
+        "http-status-codes": "^1.4.0"
+    },
+    "devDependencies": {}
+}
