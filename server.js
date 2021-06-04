@@ -2,14 +2,13 @@
 
 const express = require('express')
 const https = require('https')
-const bodyParser = require("body-parser")
+const bodyParser = require('body-parser')
 const HTTPStatus = require('http-status-codes')
 const path = require('path')
-const fs = require("fs")
+const fs = require('fs')
 const { Gateway, Wallets } = require('fabric-network')
 const app = express()
 var cfg
-var wallet
 var contract
 
 app.use(bodyParser.json())
@@ -61,24 +60,29 @@ async function setup () {
         console.log('Read the JSON config file')
 
         // Get the connection profile
-        const profile = JSON.parse(fs.readFileSync(path.resolve(__dirname, cfg.connectionProfile)))
+        const profile = JSON.parse(fs.readFileSync(path.resolve(__dirname, cfg.connection_profile)))
 
         // Create a new file system wallet for managing identities
-        const walletPath = path.resolve(__dirname, cfg.walletLocation)
+        const walletPath = path.resolve(__dirname, cfg.wallet_location)
         const wallet = await Wallets.newFileSystemWallet(walletPath)
         console.log(`Wallet path: ${walletPath}`)
 
         // Check to see if we've already enrolled the user
-        const identity = await wallet.get(cfg.user);
+        const identity = await wallet.get(cfg.user)
         if (!identity) {
-            console.log('An identity for the user '+cfg.user+' does not exist in the wallet');
-            console.log('Run the registerUser.js application before retrying');
+            console.log(`An identity for the user ${cfg.user} does not exist in the wallet`)
+            console.log('Run the registerUser.js application before retrying')
             return;
         }
 
         // Create a new gateway for connecting to our peer node
+        const use_disc = process.env.INITIALIZE_WITH_DISCOVERY || cfg.use_discovery
+        const as_local = process.env.DISCOVERY_AS_LOCALHOST || cfg.as_local_host
+        const enabled = true ? use_disc === 'true' : false
+        const asLocalhost = true ? as_local === 'true' : false
+        console.log(`Discovery enabled = ${enabled} asLocalhost = ${asLocalhost}`)
         const gateway = new Gateway()
-        await gateway.connect(profile, { wallet, identity: cfg.user, discovery: { enabled: true, asLocalhost: true  } })
+        await gateway.connect(profile, { wallet, identity: cfg.user, discovery: { enabled, asLocalhost } })
 
         // Get the network (channel) our contract is deployed to
         const network = await gateway.getNetwork(cfg.channel)
@@ -87,7 +91,7 @@ async function setup () {
         contract = network.getContract(cfg.contract)
         console.log('Connected to the blockchain')
     } catch (error) {
-        console.error(`Failed to set up the API server: ${error}`)
+        console.error(`Failed to set up the fabric client: ${error}`)
         process.exit(1)
     }
 }

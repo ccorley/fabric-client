@@ -3,6 +3,8 @@
     "channel": "channel1",
     "contract": "fhir-data",
     "port": 9043,
-    "connectionProfile": "conf/connection-org1.json",
-    "walletLocation": "wallet"
+    "connection_profile": "conf/connection-org1.json",
+    "wallet_location": "conf/wallet",
+    "use_discovery": "true",
+    "as_local_host": "true"
 }
