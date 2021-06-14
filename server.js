@@ -1,11 +1,13 @@
 'use strict'
 
+require('text-encoder')
 const express = require('express')
 const https = require('https')
 const bodyParser = require('body-parser')
 const HTTPStatus = require('http-status-codes')
 const path = require('path')
 const fs = require('fs')
+const NATS = require('nats')
 const FabricCAServices = require('fabric-ca-client')
 const { Gateway, Wallets } = require('fabric-network')
 const app = express()
@@ -16,8 +18,8 @@ app.use(bodyParser.json())
 
 // cert and key for HTTPS
 const options = {
-    key: fs.readFileSync(path.resolve(__dirname, 'conf/certs/server-key.pem')),
-    cert: fs.readFileSync(path.resolve(__dirname, 'conf/certs/server-cert.pem'))
+    key: fs.readFileSync(path.resolve(__dirname, 'conf/certs/lfh-fabric-client.key')),
+    cert: fs.readFileSync(path.resolve(__dirname, 'conf/certs/lfh-fabric-client.pem'))
 };
 
 setup().then(() => {
@@ -30,32 +32,32 @@ setup().then(() => {
 // GET the record identified by the id in the request query
 app.get('/patient', (req, res) => {
     req.body = { "fcn": "queryPatient", "args": [ req.query.id ] }
-    sendTransaction(req, res)
+    sendTransactionHTTP(req, res)
 })
 
 // POST the record using the JSON in the request body
 app.post('/patient', (req, res) => {
     req.body = { "fcn": "addPatient", "args": [ req.body.id, req.body] }
-    sendTransaction(req, res)
+    sendTransactionHTTP(req, res)
 })
 
 // PUT the record using the JSON in the request body
 app.put('/patient', (req, res) => {
     req.body = { "fcn": "replacePatient", "args": [ req.body.id, req.body] }
-    sendTransaction(req, res)
+    sendTransactionHTTP(req, res)
 })
 
 // PATCH the record using the JSON in the request body
 app.patch('/patient', (req, res) => {
     req.body = { "fcn": "updatePatient", "args": [ req.body.id, req.body] }
-    sendTransaction(req, res)
+    sendTransactionHTTP(req, res)
 })
 
 /**
   * Send the transaction. Since all API calls are invokes, the steps are the
   * same for get, post, put, patch.
   */
-async function sendTransaction (req, res) {
+async function sendTransactionHTTP (req, res) {
     const { fcn } = req.body
     let { args } = req.body
 
@@ -87,6 +89,25 @@ async function sendTransaction (req, res) {
 }
 
 /**
+  * Send the transaction. Since all API calls are invokes, the steps are the
+  * same for get, post, put, patch.
+  */
+async function sendTransaction (fcn, args) {
+    // Allow JSON objects in REST body by stringifying here
+    args = stringifyArrayValues(args)
+
+    // Create the transaction
+    const transaction = contract.createTransaction(fcn)
+
+    // Submit the transaction
+    transaction.submit(...args)
+    .then(respbytes => {
+        let response = ''
+        if (respbytes && respbytes.length > 0) response = JSON.parse(respbytes.toString())
+    })
+}
+
+/**
   * Read the configuration file and create the connection to the blockchain.
   */
 async function setup () {
@@ -113,6 +134,12 @@ async function setup () {
         if (cfg.register_user === 'true') {
             console.log(`Registering user: ${cfg.user_name}`)
             await registerUser()
+        }
+
+        // Add NATS subscribers, if configured
+        if (cfg.use_nats === 'true') {
+            console.log(`Configuring NATS subscribers`)
+            await subscribe()
         }
 
         // Make sure we have a registered user
@@ -144,7 +171,70 @@ async function setup () {
 }
 
 /**
+  * Subscribe to LinuxForHealth EVENTS.sync messages.
+  */
+async function subscribe () {
+    var server
+    const nkey = fs.readFileSync(path.resolve(__dirname, cfg.nats_nkey))
+
+    for (server in cfg.nats_servers) {
+        console.log('servers=tls://'+cfg.nats_servers[server])
+        let nc = await NATS.connect({
+            servers: 'tls://'+cfg.nats_servers[server],
+            authenticator: NATS.nkeyAuthenticator(new TextEncoder().encode(nkey)),
+            tls: {
+                caFile: cfg.nats_ca_file,
+            }
+        })
+
+        let sub = nc.subscribe('EVENTS.sync')
+        handleMessages(sub)
+        console.log('Subscribed to EVENTS.sync messages from tls://'+cfg.nats_servers[server])
+    }
+}
+
+/**
+  * Process EVENTS.sync messages for a single NATS subscription.
+  */
+async function handleMessages (sub) {
+    for await (const msg of sub) {
+        var fcn
+        let lfh_msg = JSON.parse(new TextDecoder().decode(msg.data))
+        let lfh_data_str = Buffer.from(lfh_msg.data, 'base64').toString('utf-8')
+        let { uuid, operation, data_format } = lfh_msg
+        if (data_format === 'FHIR-R4_PATIENT') {
+            switch (operation) {
+                default:
+                case 'POST':
+                    fcn = 'addPatient'
+                    break;
+                case 'PUT':
+                    fcn = 'replacePatient'
+                    break;
+                case 'PATCH':
+                    fcn = 'updatePatient'
+                    break;
+                case 'GET':
+                    fcn = 'queryPatient'
+                    break;
+            }
+        } else {
+            console.log(`Unsupported data format ${data_format}`)
+        }
+        if (fcn) {
+            try {
+                await sendTransaction(fcn,  [ uuid, lfh_data_str ])
+            } catch (error) {
+                console.log(`Error submitting ${fcn} transaction: ${error}`)
+            }
+        }
+    }
+}
+
+/**
   * Enroll an admin.
+  *
+  * Based on the Hyperledger Fabric fabcar enrollAdmin.js example in hyperledger/fabric-samples.
   */
 async function enrollAdmin() {
     try {
@@ -180,6 +270,8 @@ async function enrollAdmin() {
 
 /**
   * Register a user.
+  *
+  * Based on the Hyperledger Fabric fabcar registerUser.js example in hyperledger/fabric-samples.
   */
 async function registerUser() {
     try {

@@ -15,7 +15,9 @@
         "express": "^4.17.1",
         "fabric-ca-client": "^2.2.6",
         "fabric-network": "^2.1.0",
-        "http-status-codes": "^1.4.0"
+        "http-status-codes": "^1.4.0",
+        "nats": "^2.0.6",
+        "text-encoder": "^0.0.4"
     },
     "devDependencies": {}
 }
