@@ -178,7 +178,7 @@ async function subscribe () {
     const nkey = fs.readFileSync(path.resolve(__dirname, cfg.nats_nkey))
 
     for (server in cfg.nats_servers) {
-        console.log('url=tls://'+cfg.nats_servers[server])
+        console.log('servers=tls://'+cfg.nats_servers[server])
         let nc = await NATS.connect({
             servers: 'tls://'+cfg.nats_servers[server],
             authenticator: NATS.nkeyAuthenticator(new TextEncoder().encode(nkey)),

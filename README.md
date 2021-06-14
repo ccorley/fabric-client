@@ -133,12 +133,33 @@ Version: 1.0, Sequence: 1, Endorsement Plugin: escc, Validation Plugin: vscc, Ap
 ```
 
 ## Configure the client
-Copy the test-network connection-org1.json to your fabric-client/conf directory
+Copy your connection json to your fabric-client/conf directory.  Example for test-network:
 ```shell
 cd test-network
 cp organizations/peerOrganizations/org1.example.com/connection-org1.json <fabric-client-path>/fabric-client/conf
 ```
-Edit the fabric-client config.json in fabric-client/conf and adjust the settings for your fabric.
+You can also edit the fabric-client config.json in fabric-client/conf and adjust the settings for your fabric, but you should be able to use the configuration with test-network without changes.  Please see the table below if you do need to make changes:
+
+| Setting | Example | Description |
+| ------- | ------- | ----------- |
+| channel | channel1 | The channel on which your Hyperledger Fabric contract is deployed. |
+| contract | fhir-data | The name of the deployed contract. |
+| port | 9043 | The port on which the fabric client listens for incoming REST API calls. |
+| connection_profile | conf/connection-org1.json | The location of the Hyperledger Fabric connection profile. |
+| wallet_location | conf/wallet | The location of the Hyperledger Fabric wallet directory.
+| use_discovery | true | Whether to use the fabric-network API's discovery service.  Use `true` if your Hyperledger Fabric servers are DNS discoverable, otherwise use `false`. |
+| as_local_host | true | If your Hyperledger Fabric servers are running locally and `use_discovery` is `true`, use `true`, otherwise use `false`. |
+| use_nats | false | Whether to use NATS to receive messages from LinuxForHealth.  This should always be true when using LinuxForHealth. |
+| nats_servers | ["localhost:4222"] | An array of NATS servers from which the fabric client will receive messages. |
+| nats_nkey | conf/certs/nats-server.nk | The NATS nkey private key that the client needs to connect to the LinuxForHealth NATS server. |
+| nats_ca_file | ./conf/certs/lfh-root-ca.pem | The CA file to use when connecting to the LinuxForHealth NATS server. |
+| enroll_admin | true | When using test-network, whether to enroll the admin.  In general this will be true, at least initially when using test-network.  Once the id is in the local wallet, you can leave it set to true or change it to false. |
+| admin_name | admin | The name of the admin to enroll when `enroll_admin` is `true`. |
+| admin_pw | adminpw | The password of the admin to enroll when `enroll_admin` is `true`. |
+| register_user | true | When using test-network, whether to enroll a user.  In general this will be true, at least initially when using test-network.  Once the id is in the local wallet, you can leave it set to true or change it to false. |
+| user_name | admin | The name of the user to register when `register_user` is `true`. |
+| certificate_authority | ca.org1.example.com | The name of the Hyperledger Fabric CA to specify when `register_user` is `true`. |
+| msp_id | Org1MSP | The name of the Hyperledger Fabric Membership Service Provider to use when  `register_user` is `true`. |
 
 ## Start the client
 ```shell
@@ -146,5 +167,4 @@ cd fabric-client
 node.js server.js
 ```
 
-## Send transactions to your blockchain
-Use the "Fabric client Patient REST API" postman collection to test sending FHIR Patient resource transactions to the Hyperledger Fabric blockchain.
+That's it - you're ready to send FHIR Patient transactions to the REST API and store them in your blockchain!
